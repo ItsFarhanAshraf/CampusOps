@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Create account — CampusOps{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Create account</h1>
+  <p class="muted">You will be signed in automatically after registration.</p>
+  <div id="form-error" class="alert alert-error hidden" role="alert"></div>
+  <form id="signup-form" class="stack" novalidate>
+    {% csrf_token %}
+    <label class="field">
+      <span>Email</span>
+      <input type="email" name="email" autocomplete="email" required>
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <label class="field">
+      <span>Confirm password</span>
+      <input type="password" name="password_confirm" autocomplete="new-password" minlength="8" required>
+    </label>
+    <label class="field">
+      <span>Role</span>
+      <select name="role" required>
+        <option value="student">Student</option>
+        <option value="faculty">Faculty</option>
+        <option value="staff">Staff</option>
+        <option value="campus_administrator">Campus administrator</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>First name</span>
+      <input type="text" name="first_name" autocomplete="given-name">
+    </label>
+    <label class="field">
+      <span>Last name</span>
+      <input type="text" name="last_name" autocomplete="family-name">
+    </label>
+    <label class="field">
+      <span>Campus ID (optional)</span>
+      <input type="text" name="campus_id" maxlength="64" autocomplete="off">
+    </label>
+    <button type="submit" class="btn primary" id="signup-submit">Create account</button>
+  </form>
+  <p class="muted footnote">Already registered? <a href="{% url 'web-login' %}">Sign in</a></p>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    CampusOpsAuth.initSignupPage({
+      formId: 'signup-form',
+      errorId: 'form-error',
+      submitId: 'signup-submit',
+      registerUrl: '/api/v1/auth/register/',
+      tokenUrl: '/api/v1/auth/token/',
+      dashboardUrl: '{% url "web-dashboard" %}',
+    });
+  });
+</script>
+{% endblock %}

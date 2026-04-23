@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Dashboard — CampusOps{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="row spread">
+    <h1>Dashboard</h1>
+    <button type="button" class="btn ghost" id="logout-btn">Sign out</button>
+  </div>
+  <p class="muted">Signed-in profile loaded from the API.</p>
+  <div id="dash-error" class="alert alert-error hidden" role="alert"></div>
+  <div id="dash-loading" class="muted">Loading your profile…</div>
+  <div id="dash-content" class="hidden stack">
+    <dl class="kv">
+      <dt>Email</dt>
+      <dd id="me-email"></dd>
+      <dt>Name</dt>
+      <dd id="me-name"></dd>
+      <dt>Campus ID</dt>
+      <dd id="me-campus"></dd>
+      <dt>Roles (groups)</dt>
+      <dd id="me-groups"></dd>
+    </dl>
+    <div id="admin-ping" class="hidden alert alert-success"></div>
+  </div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    CampusOpsAuth.initDashboardPage({
+      loginUrl: '{% url "web-login" %}',
+      tokenUrl: '/api/v1/auth/token/',
+      meUrl: '/api/v1/auth/me/',
+      adminPingUrl: '/api/v1/auth/admin/ping/',
+      errorId: 'dash-error',
+      loadingId: 'dash-loading',
+      contentId: 'dash-content',
+      logoutId: 'logout-btn',
+      fields: {
+        email: 'me-email',
+        name: 'me-name',
+        campus: 'me-campus',
+        groups: 'me-groups',
+      },
+      adminPingId: 'admin-ping',
+    });
+  });
+</script>
+{% endblock %}

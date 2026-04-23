@@ -1,0 +1,25 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CampusOps{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'web-home' %}">CampusOps</a>
+    <span class="tagline">Smart Campus Operations</span>
+  </header>
+  <main class="shell">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <span>Phase 1 — Identity &amp; Security</span>
+    <span class="footer-links"><a href="/swagger/">Swagger</a> · <a href="/redoc/">ReDoc</a></span>
+  </footer>
+  <script src="{% static 'js/auth.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
