@@ -48,6 +48,12 @@ body {
   padding: 0 1rem 3rem;
 }
 
+.academic-wrap {
+  max-width: 960px;
+  margin: 2.5rem auto;
+  padding: 0 1rem 3rem;
+}
+
 .card {
   background: rgba(17, 24, 39, 0.92);
   border: 1px solid var(--border);
@@ -59,6 +65,18 @@ body {
 h1 {
   margin: 0 0 0.35rem;
   font-size: 1.45rem;
+}
+
+.h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .muted {
@@ -189,4 +207,72 @@ select:focus {
 
 .footer-links a {
   color: var(--accent);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 1rem 0;
+}
+
+.tab {
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: #0b1220;
+  color: var(--text);
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.tab.active {
+  border-color: transparent;
+  background: rgba(14, 165, 233, 0.25);
+  color: #e0f2fe;
+}
+
+.tab-panel.hidden {
+  display: none;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table.data th,
+table.data td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid #1f2937;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.data th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  font-size: 0.75rem;
+  color: var(--muted);
 }

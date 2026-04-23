@@ -12,7 +12,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title='CampusOps API',
         default_version='v1',
-        description='Smart Campus Operations Platform — Phase 1 identity & security.',
+        description='Smart Campus Operations Platform — identity, academic operations, and reports.',
     ),
     public=True,
     permission_classes=(drf_permissions.AllowAny,),
@@ -22,6 +22,7 @@ urlpatterns = [
     path('', include('web.urls')),
     path('admin/', admin.site.urls),
     path('api/v1/', include('accounts.urls')),
+    path('api/v1/academic/', include('academic.urls')),
     path('api-auth/', include('rest_framework.urls')),
     re_path(
         r'^swagger(?P<format>\.json|\.yaml)$',

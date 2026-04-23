@@ -16,3 +16,7 @@ class SignupView(TemplateView):
 
 class DashboardView(TemplateView):
     template_name = "web/dashboard.html"
+
+
+class AcademicView(TemplateView):
+    template_name = "web/academic.html"
