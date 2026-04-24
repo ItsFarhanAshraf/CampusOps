@@ -1,55 +1,124 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Dashboard — CampusOps{% endblock %}
-{% block content %}
-<section class="card">
-  <div class="row spread">
-    <h1>Dashboard</h1>
-    <button type="button" class="btn ghost" id="logout-btn">Sign out</button>
-  </div>
-  <p class="muted">Signed-in profile loaded from the API.</p>
-  <div id="dash-error" class="alert alert-error hidden" role="alert"></div>
-  <div id="dash-loading" class="muted">Loading your profile…</div>
-  <div id="dash-content" class="hidden stack">
-    <dl class="kv">
-      <dt>Email</dt>
-      <dd id="me-email"></dd>
-      <dt>Name</dt>
-      <dd id="me-name"></dd>
-      <dt>Campus ID</dt>
-      <dd id="me-campus"></dd>
-      <dt>Roles (groups)</dt>
-      <dd id="me-groups"></dd>
-    </dl>
-    <div id="admin-ping" class="hidden alert alert-success"></div>
-    <p class="muted" style="margin-top:1.25rem;">
-      <a href="{% url 'web-academic' %}">Academic hub</a>
-      ·
-      <a href="{% url 'web-finance' %}">Finance hub</a>
-    </p>
-  </div>
-</section>
+{% block title %}Dashboard{% endblock %}
+
+{% block breadcrumb %}
+<span class="sep">/</span>
+<span>Dashboard</span>
 {% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Welcome back! Here's what's happening on your campus.{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="row g-3 mb-4" id="stat-cards">
+  <div class="col-6 col-lg-3">
+    <div class="co-stat-card">
+      <div class="co-stat-icon co-icon-primary"><i class="bi bi-book-half"></i></div>
+      <div class="co-stat-value" id="stat-courses"><span class="co-skeleton d-block" style="width:3rem;height:1.65rem;"></span></div>
+      <div class="co-stat-label">Courses</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="co-stat-card">
+      <div class="co-stat-icon co-icon-success"><i class="bi bi-person-check"></i></div>
+      <div class="co-stat-value" id="stat-enrollments"><span class="co-skeleton d-block" style="width:3rem;height:1.65rem;"></span></div>
+      <div class="co-stat-label">Enrollments</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="co-stat-card">
+      <div class="co-stat-icon co-icon-warning"><i class="bi bi-receipt"></i></div>
+      <div class="co-stat-value" id="stat-invoices"><span class="co-skeleton d-block" style="width:3rem;height:1.65rem;"></span></div>
+      <div class="co-stat-label">Open Invoices</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="co-stat-card">
+      <div class="co-stat-icon co-icon-danger"><i class="bi bi-clock-history"></i></div>
+      <div class="co-stat-value" id="stat-pending"><span class="co-skeleton d-block" style="width:3rem;height:1.65rem;"></span></div>
+      <div class="co-stat-label">Pending Payments</div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick links -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-6">
+    <a href="{% url 'web-academic' %}" class="co-action-card">
+      <div class="co-action-icon co-icon-primary"><i class="bi bi-mortarboard"></i></div>
+      <div>
+        <div class="co-action-title">Academic Hub</div>
+        <div class="co-action-sub">Attendance, grades, courses & reports</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-muted"></i>
+    </a>
+  </div>
+  <div class="col-12 col-md-6">
+    <a href="{% url 'web-finance' %}" class="co-action-card">
+      <div class="co-action-icon co-icon-warning"><i class="bi bi-credit-card-2-front"></i></div>
+      <div>
+        <div class="co-action-title">Finance Hub</div>
+        <div class="co-action-sub">Invoices, payments & installment plans</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-muted"></i>
+    </a>
+  </div>
+</div>
+
+<!-- Recent rows -->
+<div class="row g-3">
+  <!-- Recent invoices -->
+  <div class="col-12 col-lg-6">
+    <div class="co-table-card">
+      <div class="co-table-header">
+        <h6 class="co-table-title"><i class="bi bi-receipt me-2 text-muted"></i>Recent Invoices</h6>
+        <a href="{% url 'web-finance' %}" class="btn btn-sm btn-outline-secondary">View all</a>
+      </div>
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="recent-invoices-tbody">
+          <tr><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td></tr>
+          <tr><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td></tr>
+          <tr><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent attendance -->
+  <div class="col-12 col-lg-6">
+    <div class="co-table-card">
+      <div class="co-table-header">
+        <h6 class="co-table-title"><i class="bi bi-calendar-check me-2 text-muted"></i>Recent Attendance</h6>
+        <a href="{% url 'web-academic' %}" class="btn btn-sm btn-outline-secondary">View all</a>
+      </div>
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="recent-attendance-tbody">
+          <tr><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td></tr>
+          <tr><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td></tr>
+          <tr><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td><td><div class="co-skeleton"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
 {% block extra_js %}
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    CampusOpsAuth.initDashboardPage({
-      loginUrl: '{% url "web-login" %}',
-      tokenUrl: '/api/v1/auth/token/',
-      meUrl: '/api/v1/auth/me/',
-      adminPingUrl: '/api/v1/auth/admin/ping/',
-      errorId: 'dash-error',
-      loadingId: 'dash-loading',
-      contentId: 'dash-content',
-      logoutId: 'logout-btn',
-      fields: {
-        email: 'me-email',
-        name: 'me-name',
-        campus: 'me-campus',
-        groups: 'me-groups',
-      },
-      adminPingId: 'admin-ping',
-    });
-  });
-</script>
+<script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}

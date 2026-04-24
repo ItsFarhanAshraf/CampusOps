@@ -1,144 +1,421 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Academic — CampusOps{% endblock %}
-{% block content %}
-<div class="academic-wrap">
-  <section class="card">
-    <div class="row spread">
-      <h1>Academic hub</h1>
-      <div class="inline-actions">
-        <a class="btn ghost" href="{% url 'web-dashboard' %}">Dashboard</a>
-        <button type="button" class="btn ghost" id="academic-logout">Sign out</button>
-      </div>
-    </div>
-    <p class="muted">Phase 2 — attendance, grades, and reports connected to the live APIs.</p>
-    <div id="academic-error" class="alert alert-error hidden" role="alert"></div>
-    <p id="academic-role" class="pill hidden"></p>
+{% block title %}Academic{% endblock %}
 
-    <label class="field" style="margin-top:1rem;">
-      <span>Active course</span>
-      <select id="course-select">
-        <option value="">Select a course…</option>
-      </select>
-    </label>
+{% block breadcrumb %}
+<span class="sep">/</span>
+<span>Academic</span>
+{% endblock %}
 
-    <div id="course-create" class="hidden stack" style="margin-top:1rem;">
-      <h3 class="h3">Create course (faculty / staff)</h3>
-      <form id="course-form" class="stack">
-        <label class="field"><span>Code</span><input name="code" required maxlength="32" placeholder="CS101"></label>
-        <label class="field"><span>Title</span><input name="title" required maxlength="255" placeholder="Intro to CS"></label>
-        <label class="field"><span>Term (optional)</span><input name="term" maxlength="64" placeholder="Fall 2026"></label>
-        <label class="field"><span>Instructor user ID (optional)</span><input name="instructor" type="number" min="1" placeholder="Defaults to you"></label>
-        <button type="submit" class="btn primary" id="course-submit">Create course</button>
-      </form>
-    </div>
+{% block page_title %}Academic Hub{% endblock %}
+{% block page_subtitle %}Manage courses, attendance, grades and enrollments.{% endblock %}
 
-    <div class="tabs" role="tablist" aria-label="Academic sections">
-      <button type="button" class="tab active" data-tab="attendance">Attendance</button>
-      <button type="button" class="tab" data-tab="grades">Grades</button>
-      <button type="button" class="tab" data-tab="reports">Reports</button>
-      <button type="button" class="tab" data-tab="enroll">Enrollment</button>
-    </div>
-
-    <div class="tab-panel" data-panel="attendance">
-      <h2 class="h2">Attendance</h2>
-      <p class="muted">Rows are filtered by the selected course.</p>
-      <div id="attendance-manage" class="hidden stack" style="margin:1rem 0;">
-        <h3 class="h3">Record attendance</h3>
-        <form id="attendance-form" class="stack">
-          <label class="field"><span>Student user ID</span><input name="student" type="number" min="1" required></label>
-          <label class="field"><span>Session date</span><input name="session_date" type="date" required></label>
-          <label class="field"><span>Status</span>
-            <select name="status" required>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="late">Late</option>
-              <option value="excused">Excused</option>
-            </select>
-          </label>
-          <label class="field"><span>Notes (optional)</span><input name="notes" type="text" maxlength="255"></label>
-          <button type="submit" class="btn primary" id="attendance-submit">Save attendance</button>
-        </form>
-      </div>
-      <div class="table-wrap">
-        <table class="data" aria-label="Attendance records">
-          <thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Notes</th></tr></thead>
-          <tbody id="attendance-body"><tr><td colspan="4" class="muted">Pick a course to load rows.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="grades">
-      <h2 class="h2">Grades</h2>
-      <p class="muted">Scores are validated server-side (0 ≤ score ≤ max_points).</p>
-      <div id="grades-manage" class="hidden stack" style="margin:1rem 0;">
-        <h3 class="h3">Record grade</h3>
-        <form id="grade-form" class="stack">
-          <label class="field"><span>Student user ID</span><input name="student" type="number" min="1" required></label>
-          <label class="field"><span>Category</span>
-            <select name="category" required>
-              <option value="assignment">Assignment</option>
-              <option value="quiz">Quiz</option>
-              <option value="midterm">Midterm</option>
-              <option value="final">Final</option>
-              <option value="project">Project</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label class="field"><span>Title</span><input name="title" type="text" required maxlength="128"></label>
-          <label class="field"><span>Max points</span><input name="max_points" type="number" step="0.01" min="0.01" required></label>
-          <label class="field"><span>Score</span><input name="score" type="number" step="0.01" min="0" required></label>
-          <button type="submit" class="btn primary" id="grade-submit">Save grade</button>
-        </form>
-      </div>
-      <div class="table-wrap">
-        <table class="data" aria-label="Grade records">
-          <thead><tr><th>Student</th><th>Item</th><th>Score</th><th>Max</th><th>%</th></tr></thead>
-          <tbody id="grades-body"><tr><td colspan="5" class="muted">Pick a course to load rows.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="reports">
-      <h2 class="h2">Reports</h2>
-      <p class="muted">Summaries are available to instructors and academic staff roles.</p>
-      <div class="inline-actions" style="margin:0.75rem 0;">
-        <button type="button" class="btn primary" id="btn-attendance-report">Load attendance summary</button>
-        <button type="button" class="btn primary" id="btn-grades-report">Load grades summary</button>
-      </div>
-      <pre id="report-output" class="pill" style="white-space:pre-wrap;border:1px solid #334155;padding:0.75rem;border-radius:10px;background:#0b1220;color:var(--text);max-height:320px;overflow:auto;">{}</pre>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="enroll">
-      <h2 class="h2">Enrollment</h2>
-      <p class="muted">Students can self-enroll in a course using the selected course.</p>
-      <form id="enroll-form" class="stack" style="max-width:420px;">
-        <button type="submit" class="btn primary" id="enroll-submit">Enroll me in this course</button>
-      </form>
-      <div class="table-wrap" style="margin-top:1rem;">
-        <table class="data" aria-label="Enrollments">
-          <thead><tr><th>ID</th><th>Student</th><th>Status</th></tr></thead>
-          <tbody id="enroll-body"><tr><td colspan="3" class="muted">Pick a course.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+{% block page_actions %}
+<div class="d-flex gap-2" id="acad-actions">
+  <!-- Populated by JS based on role -->
 </div>
 {% endblock %}
+
+{% block content %}
+
+<!-- Sub-tabs -->
+<ul class="nav co-sub-tabs gap-1 mb-3" id="acad-tabs" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active" data-tab="courses">
+      <i class="bi bi-book me-1"></i>Courses
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-tab="attendance">
+      <i class="bi bi-calendar-check me-1"></i>Attendance
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-tab="grades">
+      <i class="bi bi-star me-1"></i>Grades
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-tab="enrollments">
+      <i class="bi bi-person-check me-1"></i>Enrollments
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-tab="reports">
+      <i class="bi bi-bar-chart me-1"></i>Reports
+    </button>
+  </li>
+</ul>
+
+<!-- ── COURSES ── -->
+<div id="tab-courses">
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Courses</h6>
+      <div class="d-flex align-items-center gap-2">
+        <div class="co-search-wrap">
+          <i class="bi bi-search"></i>
+          <input type="text" id="course-search" class="form-control form-control-sm" placeholder="Search…">
+        </div>
+        <button class="btn btn-primary btn-sm d-none" id="btn-add-course">
+          <i class="bi bi-plus-lg me-1"></i>New Course
+        </button>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Code</th><th>Name</th><th>Credits</th><th>Instructor</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="courses-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="courses-info"></span>
+      <div id="courses-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ATTENDANCE ── -->
+<div id="tab-attendance" class="d-none">
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <label class="form-label mb-0 fw-semibold" style="font-size:.82rem;">Course:</label>
+    <select id="att-course-filter" class="form-select form-select-sm" style="width:auto;min-width:220px;">
+      <option value="">All courses</option>
+    </select>
+    <select id="att-status-filter" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All statuses</option>
+      <option value="present">Present</option>
+      <option value="absent">Absent</option>
+      <option value="late">Late</option>
+      <option value="excused">Excused</option>
+    </select>
+    <button class="btn btn-primary btn-sm ms-auto d-none" id="btn-add-attendance">
+      <i class="bi bi-plus-lg me-1"></i>Record Attendance
+    </button>
+  </div>
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Attendance Records</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="att-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Student</th><th>Course</th><th>Date</th><th>Status</th><th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="attendance-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="att-info"></span>
+      <div id="att-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GRADES ── -->
+<div id="tab-grades" class="d-none">
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <label class="form-label mb-0 fw-semibold" style="font-size:.82rem;">Course:</label>
+    <select id="grade-course-filter" class="form-select form-select-sm" style="width:auto;min-width:220px;">
+      <option value="">All courses</option>
+    </select>
+    <button class="btn btn-primary btn-sm ms-auto d-none" id="btn-add-grade">
+      <i class="bi bi-plus-lg me-1"></i>Add Grade
+    </button>
+  </div>
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Grade Records</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="grade-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Student</th><th>Course</th><th>Score</th><th>Grade</th><th>Type</th><th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="grades-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="grades-info"></span>
+      <div id="grades-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ENROLLMENTS ── -->
+<div id="tab-enrollments" class="d-none">
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <select id="enroll-status-filter" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="dropped">Dropped</option>
+    </select>
+    <button class="btn btn-primary btn-sm ms-auto d-none" id="btn-add-enrollment">
+      <i class="bi bi-plus-lg me-1"></i>Enroll Student
+    </button>
+  </div>
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Enrollments</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="enroll-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Student</th><th>Course</th><th>Enrolled On</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="enrollments-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="enroll-info"></span>
+      <div id="enroll-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── REPORTS ── -->
+<div id="tab-reports" class="d-none">
+  <div class="row g-3">
+    <div class="col-12 col-md-6">
+      <div class="co-table-card p-3">
+        <h6 class="co-table-title mb-3"><i class="bi bi-calendar-check me-2 text-muted"></i>Attendance Summary</h6>
+        <div class="mb-3">
+          <label class="form-label">Select Course</label>
+          <select id="report-att-course" class="form-select form-select-sm">
+            <option value="">— select —</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-att-report">
+          <i class="bi bi-bar-chart me-1"></i>Generate Report
+        </button>
+        <div id="att-report-result" class="mt-3"></div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="co-table-card p-3">
+        <h6 class="co-table-title mb-3"><i class="bi bi-star me-2 text-muted"></i>Grades Summary</h6>
+        <div class="mb-3">
+          <label class="form-label">Select Course</label>
+          <select id="report-grade-course" class="form-select form-select-sm">
+            <option value="">— select —</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-grade-report">
+          <i class="bi bi-bar-chart me-1"></i>Generate Report
+        </button>
+        <div id="grade-report-result" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════
+     MODALS
+════════════════════════════ -->
+
+<!-- New Course Modal -->
+<div class="modal fade" id="modal-course" tabindex="-1" aria-labelledby="modalCourseTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalCourseTitle">New Course</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-course">
+        <div class="modal-body">
+          <div id="course-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <div class="mb-3">
+            <label class="form-label">Course Code <span class="text-danger">*</span></label>
+            <input type="text" name="code" class="form-control form-control-sm" required placeholder="e.g. CS101">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Course Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control form-control-sm" required>
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Credits</label>
+              <input type="number" name="credits" class="form-control form-control-sm" value="3" min="1" max="12">
+            </div>
+            <div class="col">
+              <label class="form-label">Max Capacity</label>
+              <input type="number" name="max_capacity" class="form-control form-control-sm" value="30" min="1">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Description</label>
+            <textarea name="description" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-course">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Attendance Modal -->
+<div class="modal fade" id="modal-attendance" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Record Attendance</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-attendance">
+        <div class="modal-body">
+          <div id="att-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <div class="mb-3">
+            <label class="form-label">Enrollment</label>
+            <select name="enrollment" class="form-select form-select-sm" id="att-enrollment-select" required>
+              <option value="">Select student enrollment…</option>
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Session Date <span class="text-danger">*</span></label>
+              <input type="date" name="session_date" class="form-control form-control-sm" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Status <span class="text-danger">*</span></label>
+              <select name="status" class="form-select form-select-sm" required>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="excused">Excused</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" class="form-control form-control-sm" placeholder="Optional…">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-att">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Grade Modal -->
+<div class="modal fade" id="modal-grade" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Grade</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-grade">
+        <div class="modal-body">
+          <div id="grade-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <div class="mb-3">
+            <label class="form-label">Enrollment</label>
+            <select name="enrollment" class="form-select form-select-sm" id="grade-enrollment-select" required>
+              <option value="">Select student enrollment…</option>
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Score <span class="text-danger">*</span></label>
+              <input type="number" name="score" class="form-control form-control-sm" min="0" max="100" step="0.1" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Max Score</label>
+              <input type="number" name="max_score" class="form-control form-control-sm" value="100" min="1">
+            </div>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col">
+              <label class="form-label">Grade Type <span class="text-danger">*</span></label>
+              <select name="grade_type" class="form-select form-select-sm" required>
+                <option value="quiz">Quiz</option>
+                <option value="assignment">Assignment</option>
+                <option value="midterm">Midterm</option>
+                <option value="final">Final</option>
+                <option value="project">Project</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label">Date</label>
+              <input type="date" name="graded_at" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Letter Grade</label>
+            <input type="text" name="letter_grade" class="form-control form-control-sm" maxlength="3" placeholder="e.g. A+">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-grade">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Enrollment Modal -->
+<div class="modal fade" id="modal-enrollment" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enroll Student</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-enrollment">
+        <div class="modal-body">
+          <div id="enroll-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <div class="mb-3">
+            <label class="form-label">Student Email <span class="text-danger">*</span></label>
+            <input type="text" name="student_email" class="form-control form-control-sm" placeholder="student@campus.edu" required>
+            <div class="form-text">Enter the student's registered email address.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Course <span class="text-danger">*</span></label>
+            <select name="course" class="form-select form-select-sm" id="enroll-course-select" required>
+              <option value="">Select course…</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-enrollment">Enroll</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block extra_js %}
 <script src="{% static 'js/academic.js' %}"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    CampusOpsAcademic.init({
-      loginUrl: '{% url "web-login" %}',
-      tokenUrl: '/api/v1/auth/token/',
-      meUrl: '/api/v1/auth/me/',
-      coursesUrl: '/api/v1/academic/courses/',
-      enrollmentsUrl: '/api/v1/academic/enrollments/',
-      attendanceUrl: '/api/v1/academic/attendance/',
-      gradesUrl: '/api/v1/academic/grades/',
-      reportsBase: '/api/v1/academic/reports/',
-    });
-  });
-</script>
 {% endblock %}

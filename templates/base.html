@@ -4,22 +4,195 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}CampusOps{% endblock %}</title>
+  <title>{% block title %}CampusOps{% endblock %} — CampusOps</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="{% url 'web-home' %}">CampusOps</a>
-    <span class="tagline">Smart Campus Operations</span>
-  </header>
-  <main class="shell">
-    {% block content %}{% endblock %}
-  </main>
-  <footer class="footer">
-    <span>CampusOps platform</span>
-    <span class="footer-links"><a href="/swagger/">Swagger</a> · <a href="/redoc/">ReDoc</a></span>
-  </footer>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3"></div>
+
+  <!-- Mobile overlay -->
+  <div class="co-sidebar-overlay d-lg-none" id="sidebarOverlay"></div>
+
+  <div class="co-wrapper">
+
+    <!-- ── Sidebar ── -->
+    <nav class="co-sidebar" id="sidebar">
+
+      <a href="{% url 'web-dashboard' %}" class="co-sidebar-brand">
+        <i class="bi bi-building-fill"></i>
+        <span>CampusOps</span>
+      </a>
+
+      <div class="co-sidebar-section-label">Main Menu</div>
+
+      <ul class="co-sidebar-nav">
+        <li>
+          <a href="{% url 'web-dashboard' %}"
+             class="co-nav-link {% if request.resolver_match.url_name == 'web-dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2"></i>
+            <span>Dashboard</span>
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'web-academic' %}"
+             class="co-nav-link {% if request.resolver_match.url_name == 'web-academic' %}active{% endif %}">
+            <i class="bi bi-mortarboard"></i>
+            <span>Academic</span>
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'web-finance' %}"
+             class="co-nav-link {% if request.resolver_match.url_name == 'web-finance' %}active{% endif %}">
+            <i class="bi bi-credit-card-2-front"></i>
+            <span>Finance</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="co-sidebar-divider"></div>
+
+      <div class="co-sidebar-section-label">Tools</div>
+
+      <ul class="co-sidebar-nav">
+        <li>
+          <a href="/admin/" target="_blank" class="co-nav-link">
+            <i class="bi bi-shield-lock"></i>
+            <span>Admin Panel</span>
+            <i class="bi bi-arrow-up-right-square co-ext-icon"></i>
+          </a>
+        </li>
+        <li>
+          <a href="/swagger/" target="_blank" class="co-nav-link">
+            <i class="bi bi-code-slash"></i>
+            <span>API Docs</span>
+            <i class="bi bi-arrow-up-right-square co-ext-icon"></i>
+          </a>
+        </li>
+      </ul>
+
+      <!-- Sidebar footer -->
+      <div class="co-sidebar-footer">
+        <div class="co-user-info">
+          <div class="co-user-avatar">
+            <i class="bi bi-person-fill"></i>
+          </div>
+          <div>
+            <div class="co-user-email" id="sb-user-email">Loading…</div>
+            <div class="co-user-role"  id="sb-user-role"></div>
+          </div>
+        </div>
+        <button class="co-logout-btn" id="sb-logout">
+          <i class="bi bi-box-arrow-right"></i>
+          Sign out
+        </button>
+      </div>
+    </nav>
+    <!-- /Sidebar -->
+
+    <!-- ── Content wrapper ── -->
+    <div class="co-content-wrapper" id="contentWrapper">
+
+      <!-- Top navbar -->
+      <nav class="co-topnav">
+        <div class="co-topnav-left">
+          <button class="co-sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+            <i class="bi bi-list fs-5"></i>
+          </button>
+          <div class="co-breadcrumb">
+            <a href="{% url 'web-dashboard' %}" class="co-breadcrumb-home" aria-label="Home">
+              <i class="bi bi-house"></i>
+            </a>
+            {% block breadcrumb %}{% endblock %}
+          </div>
+        </div>
+        <div class="co-topnav-right">
+          <span class="co-badge co-badge-primary d-none" id="nav-role-badge"></span>
+          <span class="co-nav-username" id="nav-username"></span>
+        </div>
+      </nav>
+
+      <!-- Page header -->
+      <div class="co-page-header">
+        <div>
+          <h1 class="co-page-title">{% block page_title %}CampusOps{% endblock %}</h1>
+          <p class="co-page-subtitle text-muted mb-0">{% block page_subtitle %}{% endblock %}</p>
+        </div>
+        <div>{% block page_actions %}{% endblock %}</div>
+      </div>
+
+      <!-- Main content -->
+      <main class="co-main">
+        {% block content %}{% endblock %}
+      </main>
+
+    </div><!-- /content-wrapper -->
+  </div><!-- /wrapper -->
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{% static 'js/app.js' %}"></script>
   <script src="{% static 'js/auth.js' %}"></script>
+  <script>
+    (function () {
+      /* Redirect to login if not authenticated */
+      if (!CampusApp.getAccess() && !CampusApp.getRefresh()) {
+        window.location.href = '{% url "web-login" %}';
+        return;
+      }
+
+      /* Sidebar toggle (mobile) */
+      var toggle  = document.getElementById('sidebarToggle');
+      var sidebar = document.getElementById('sidebar');
+      var overlay = document.getElementById('sidebarOverlay');
+
+      function openSidebar()  { sidebar.classList.add('show');    overlay.classList.add('show'); }
+      function closeSidebar() { sidebar.classList.remove('show'); overlay.classList.remove('show'); }
+
+      if (toggle)  toggle.addEventListener('click', function () { sidebar.classList.contains('show') ? closeSidebar() : openSidebar(); });
+      if (overlay) overlay.addEventListener('click', closeSidebar);
+
+      /* Load user info */
+      (async function () {
+        try {
+          var res = await CampusApp.apiJson('/api/v1/auth/me/');
+          if (res.status === 401) { CampusApp.clearTokens(); window.location.href = '{% url "web-login" %}'; return; }
+          if (!res.ok) return;
+          var me = await res.json();
+          var email   = me.email || '';
+          var fname   = me.first_name || email.split('@')[0];
+          var roles   = (me.group_names || []);
+          var roleStr = roles.join(', ') || 'user';
+
+          var sbEmail = document.getElementById('sb-user-email');
+          var sbRole  = document.getElementById('sb-user-role');
+          var navUser = document.getElementById('nav-username');
+          var navBadge= document.getElementById('nav-role-badge');
+
+          if (sbEmail) sbEmail.textContent = email;
+          if (sbRole)  sbRole.textContent  = roleStr;
+          if (navUser) navUser.textContent  = fname;
+          if (navBadge && roles.length) {
+            navBadge.textContent = roles[0];
+            navBadge.classList.remove('d-none');
+          }
+        } catch (e) {}
+      })();
+
+      /* Logout */
+      var logoutBtn = document.getElementById('sb-logout');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          CampusApp.clearTokens();
+          window.location.href = '{% url "web-login" %}';
+        });
+      }
+    })();
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

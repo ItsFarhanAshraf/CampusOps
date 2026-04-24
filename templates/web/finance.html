@@ -1,165 +1,428 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Finance — CampusOps{% endblock %}
-{% block content %}
-<div class="academic-wrap">
-  <section class="card">
-    <div class="row spread">
-      <h1>Finance hub</h1>
-      <div class="inline-actions">
-        <a class="btn ghost" href="{% url 'web-dashboard' %}">Dashboard</a>
-        <button type="button" class="btn ghost" id="finance-logout">Sign out</button>
-      </div>
-    </div>
-    <p class="muted">Phase 4.1 — pending payment intents, PDF invoices, and student-visible installment schedules.</p>
-    <div id="finance-error" class="alert alert-error hidden" role="alert"></div>
-    <p id="finance-role" class="pill hidden"></p>
+{% block title %}Finance{% endblock %}
 
-    <div class="tabs" role="tablist" aria-label="Finance sections">
-      <button type="button" class="tab active" data-tab="fees">Fee structures</button>
-      <button type="button" class="tab" data-tab="invoices">Invoices</button>
-      <button type="button" class="tab" data-tab="pending">Pending payments</button>
-      <button type="button" class="tab" data-tab="installments">Installment plans</button>
-      <button type="button" class="tab" data-tab="payments">All payments</button>
-    </div>
-
-    <div class="tab-panel" data-panel="fees">
-      <h2 class="h2">Fee structures</h2>
-      <p class="muted">Catalog amounts used to build invoice lines (inactive fees hidden from students).</p>
-      <div id="fee-manage" class="hidden stack" style="margin:1rem 0;">
-        <h3 class="h3">Create / update fee</h3>
-        <form id="fee-form" class="stack">
-          <input type="hidden" name="id" id="fee-id">
-          <label class="field"><span>Code</span><input name="code" required maxlength="32" placeholder="TUITION"></label>
-          <label class="field"><span>Name</span><input name="name" required maxlength="255"></label>
-          <label class="field"><span>Amount</span><input name="amount" type="number" step="0.01" min="0.01" required></label>
-          <label class="field"><span>Term (optional)</span><input name="term" maxlength="64" placeholder="Fall 2026"></label>
-          <label class="field inline-actions"><input type="checkbox" name="is_active" checked> <span>Active</span></label>
-          <div class="inline-actions">
-            <button type="submit" class="btn primary" id="fee-submit">Save fee</button>
-            <button type="button" class="btn ghost" id="fee-reset">Clear form</button>
-          </div>
-        </form>
-      </div>
-      <div class="table-wrap">
-        <table class="data" aria-label="Fee structures">
-          <thead><tr><th>Code</th><th>Name</th><th>Amount</th><th>Term</th><th>Active</th><th id="fee-actions-th" class="hidden">Actions</th></tr></thead>
-          <tbody id="fee-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="invoices">
-      <h2 class="h2">Invoices</h2>
-      <p class="muted">PDFs use line totals; <strong>pending</strong> authorizations reduce allocatable balance until confirmed, cancelled, or expired.</p>
-      <div id="invoice-manage" class="hidden stack" style="margin:1rem 0;">
-        <h3 class="h3">Create draft invoice</h3>
-        <form id="invoice-form" class="stack">
-          <label class="field"><span>Student user ID</span><input name="student" type="number" min="1" required></label>
-          <label class="field"><span>Due date</span><input name="due_date" type="date" required></label>
-          <label class="field"><span>Notes (optional)</span><input name="notes" type="text" maxlength="500"></label>
-          <label class="field"><span>Lines (JSON array)</span>
-            <textarea name="lines_json" rows="6" class="code" required>[{"label":"Tuition","quantity":"1","unit_price":"5000.00","amount":"5000.00"}]</textarea>
-          </label>
-          <button type="submit" class="btn primary" id="invoice-submit">Create draft</button>
-        </form>
-        <h3 class="h3" style="margin-top:1rem;">Issue / void / pay</h3>
-        <div class="stack" style="max-width:520px;">
-          <label class="field"><span>Invoice ID</span><input id="op-invoice-id" type="number" min="1"></label>
-          <div class="inline-actions">
-            <button type="button" class="btn primary" id="btn-issue">Issue</button>
-            <button type="button" class="btn ghost" id="btn-void">Void (no payments)</button>
-          </div>
-          <label class="field"><span>Payment amount</span><input id="pay-amount" type="number" step="0.01" min="0.01"></label>
-          <label class="field"><span>Method</span>
-            <select id="pay-method">
-              <option value="card">Card</option>
-              <option value="cash">Cash</option>
-              <option value="bank_transfer">Bank transfer</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label class="field"><span>Reference (optional)</span><input id="pay-ref" type="text" maxlength="128"></label>
-          <button type="button" class="btn primary" id="btn-pay">Record completed payment</button>
-        </div>
-        <div id="installment-plan-box" class="hidden stack" style="margin-top:1rem;">
-          <h3 class="h3">Create installment plan</h3>
-          <p class="muted">Splits the current <strong>allocatable</strong> balance into equal installments (server-side rounding).</p>
-          <label class="field"><span>Count</span><input id="plan-count" type="number" min="2" max="120" value="3"></label>
-          <label class="field"><span>First due date</span><input id="plan-first-due" type="date"></label>
-          <label class="field"><span>Frequency</span>
-            <select id="plan-frequency">
-              <option value="monthly">Monthly</option>
-              <option value="weekly">Weekly</option>
-            </select>
-          </label>
-          <label class="field"><span>Title (optional)</span><input id="plan-title" type="text" maxlength="255" placeholder="Spring tuition plan"></label>
-          <button type="button" class="btn primary" id="btn-create-plan">Create plan for invoice ID above</button>
-        </div>
-      </div>
-      <div class="stack" style="margin:1rem 0;">
-        <h3 class="h3">Start pending payment (Stripe-style hold)</h3>
-        <p class="muted">Students may initiate a hold on <strong>their</strong> invoices; finance can initiate on behalf of a payer. Pending amounts reduce allocatable balance until confirmed or cancelled.</p>
-        <label class="field"><span>Client reference (optional)</span><input id="init-client-ref" type="text" maxlength="128" placeholder="pi_… or internal id"></label>
-        <label class="field"><span>Expires in hours</span><input id="init-exp-hours" type="number" min="1" max="168" value="24"></label>
-        <button type="button" class="btn primary" id="btn-initiate-pending">Create pending payment</button>
-      </div>
-      <div class="table-wrap">
-        <table class="data" aria-label="Invoices">
-          <thead><tr><th>ID</th><th>Student</th><th>Status</th><th>Due</th><th>Total</th><th>Paid</th><th>Pending</th><th>Alloc.</th><th>Balance</th><th>Plan</th><th>PDF</th></tr></thead>
-          <tbody id="invoice-body"><tr><td colspan="11" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="pending">
-      <h2 class="h2">Pending payments</h2>
-      <p class="muted">Confirm to capture funds (updates invoice status atomically). Finance can cancel a pending authorization.</p>
-      <div class="table-wrap">
-        <table class="data" aria-label="Pending payments">
-          <thead><tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Method</th><th>Expires</th><th>Client ref</th><th>Actions</th></tr></thead>
-          <tbody id="pending-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="installments">
-      <h2 class="h2">Installment plans</h2>
-      <p class="muted">Each issued invoice may have at most one plan. Students only see their own plans.</p>
-      <div class="table-wrap">
-        <table class="data" aria-label="Installment plans">
-          <thead><tr><th>Plan</th><th>Invoice</th><th>Principal</th><th>Schedule</th></tr></thead>
-          <tbody id="installment-body"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="tab-panel hidden" data-panel="payments">
-      <h2 class="h2">All payments</h2>
-      <p class="muted">Ledger includes completed, pending, failed, and cancelled rows.</p>
-      <div class="table-wrap">
-        <table class="data" aria-label="Payments">
-          <thead><tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Status</th><th>Method</th><th>Reference</th><th>When</th></tr></thead>
-          <tbody id="payment-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</div>
+{% block breadcrumb %}
+<span class="sep">/</span>
+<span>Finance</span>
 {% endblock %}
+
+{% block page_title %}Finance Hub{% endblock %}
+{% block page_subtitle %}Manage fee structures, invoices, payments and installment plans.{% endblock %}
+
+{% block content %}
+
+<!-- Sub-tabs -->
+<ul class="nav co-sub-tabs gap-1 mb-3" id="fin-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-tab="fees"><i class="bi bi-tags me-1"></i>Fee Structures</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="invoices"><i class="bi bi-receipt me-1"></i>Invoices</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="pending"><i class="bi bi-clock me-1"></i>Pending</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="installments"><i class="bi bi-calendar3 me-1"></i>Installments</button></li>
+  <li class="nav-item"><button class="nav-link" data-tab="payments"><i class="bi bi-check-circle me-1"></i>Payments</button></li>
+</ul>
+
+<!-- ── FEE STRUCTURES ── -->
+<div id="tab-fees">
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Fee Structures</h6>
+      <div class="d-flex align-items-center gap-2">
+        <div class="co-search-wrap">
+          <i class="bi bi-search"></i>
+          <input type="text" id="fee-search" class="form-control form-control-sm" placeholder="Search…">
+        </div>
+        <button class="btn btn-primary btn-sm d-none" id="btn-add-fee">
+          <i class="bi bi-plus-lg me-1"></i>Add Fee
+        </button>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr><th>Name</th><th>Category</th><th>Amount</th><th>Frequency</th><th>Academic Year</th></tr>
+        </thead>
+        <tbody id="fees-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="fees-info"></span>
+      <div id="fees-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── INVOICES ── -->
+<div id="tab-invoices" class="d-none">
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <select id="inv-status-filter" class="form-select form-select-sm" style="width:auto;">
+      <option value="">All statuses</option>
+      <option value="draft">Draft</option>
+      <option value="issued">Issued</option>
+      <option value="partially_paid">Partial</option>
+      <option value="paid">Paid</option>
+      <option value="void">Void</option>
+    </select>
+    <button class="btn btn-primary btn-sm ms-auto d-none" id="btn-create-invoice">
+      <i class="bi bi-plus-lg me-1"></i>Create Invoice
+    </button>
+  </div>
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Invoices</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="inv-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Invoice #</th><th>Student</th><th>Due Date</th>
+            <th>Total</th><th>Balance</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="invoices-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="inv-info"></span>
+      <div id="inv-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PENDING PAYMENTS ── -->
+<div id="tab-pending" class="d-none">
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Pending Payments</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="pending-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Reference</th><th>Invoice</th><th>Amount</th><th>Expires</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pending-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="pending-info"></span>
+      <div id="pending-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── INSTALLMENT PLANS ── -->
+<div id="tab-installments" class="d-none">
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Installment Plans</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="plan-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Invoice</th><th>Installments</th><th>Total</th><th>Status</th><th>Created</th>
+          </tr>
+        </thead>
+        <tbody id="plans-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="plans-info"></span>
+      <div id="plans-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ALL PAYMENTS ── -->
+<div id="tab-payments" class="d-none">
+  <div class="co-table-card">
+    <div class="co-table-header">
+      <h6 class="co-table-title">Payment History</h6>
+      <div class="co-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" id="pay-search" class="form-control form-control-sm" placeholder="Search…">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Invoice</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Reference</th>
+          </tr>
+        </thead>
+        <tbody id="payments-tbody"></tbody>
+      </table>
+    </div>
+    <div class="co-table-footer">
+      <span class="co-table-info" id="pay-info"></span>
+      <div id="pay-pager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     MODALS
+══════════════════════════════ -->
+
+<!-- Add Fee Structure -->
+<div class="modal fade" id="modal-fee" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Fee Structure</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-fee">
+        <div class="modal-body">
+          <div id="fee-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <div class="mb-3">
+            <label class="form-label">Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control form-control-sm" required placeholder="e.g. Tuition Fee">
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Category</label>
+              <select name="category" class="form-select form-select-sm">
+                <option value="tuition">Tuition</option>
+                <option value="hostel">Hostel</option>
+                <option value="exam">Exam</option>
+                <option value="library">Library</option>
+                <option value="sports">Sports</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label">Frequency</label>
+              <select name="frequency" class="form-select form-select-sm">
+                <option value="one_time">One-time</option>
+                <option value="semester">Semester</option>
+                <option value="annual">Annual</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col">
+              <label class="form-label">Amount <span class="text-danger">*</span></label>
+              <input type="number" name="amount" class="form-control form-control-sm" min="0" step="0.01" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Academic Year</label>
+              <input type="text" name="academic_year" class="form-control form-control-sm" placeholder="e.g. 2024-25">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-fee">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Create Invoice -->
+<div class="modal fade" id="modal-invoice" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create Invoice</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-invoice">
+        <div class="modal-body">
+          <div id="inv-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Student Email <span class="text-danger">*</span></label>
+              <input type="email" name="student_email" class="form-control form-control-sm" required placeholder="student@campus.edu">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Due Date <span class="text-danger">*</span></label>
+              <input type="date" name="due_date" class="form-control form-control-sm" required>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Optional notes…"></textarea>
+          </div>
+          <hr class="my-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <label class="form-label mb-0 fw-semibold">Invoice Lines <span class="text-danger">*</span></label>
+            <button type="button" class="btn btn-outline-secondary btn-xs" id="btn-add-line">
+              <i class="bi bi-plus me-1"></i>Add Line
+            </button>
+          </div>
+          <div id="invoice-lines-container">
+            <!-- Lines added dynamically -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-invoice">Create Invoice</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal fade" id="modal-pay" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Record Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-pay">
+        <div class="modal-body">
+          <div id="pay-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <input type="hidden" id="pay-invoice-id">
+          <p class="mb-3 text-muted" style="font-size:.82rem;">
+            Invoice: <strong id="pay-invoice-num"></strong> —
+            Balance: <strong id="pay-invoice-balance"></strong>
+          </p>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Amount <span class="text-danger">*</span></label>
+              <input type="number" name="amount" class="form-control form-control-sm" min="0.01" step="0.01" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Method <span class="text-danger">*</span></label>
+              <select name="payment_method" class="form-select form-select-sm" required>
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cheque">Cheque</option>
+                <option value="online">Online</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Reference</label>
+            <input type="text" name="reference" class="form-control form-control-sm" placeholder="Transaction ref…">
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-pay">Record Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Initiate Pending Payment Modal -->
+<div class="modal fade" id="modal-pending-pay" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Initiate Pending Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-pending-pay">
+        <div class="modal-body">
+          <div id="pending-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <input type="hidden" id="pending-invoice-id">
+          <p class="mb-3 text-muted" style="font-size:.82rem;">
+            Invoice: <strong id="pending-invoice-num"></strong>
+          </p>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Amount <span class="text-danger">*</span></label>
+              <input type="number" name="amount" class="form-control form-control-sm" min="0.01" step="0.01" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Expires In (hours)</label>
+              <input type="number" name="expires_in_hours" class="form-control form-control-sm" value="24" min="1" max="168">
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Client Reference</label>
+            <input type="text" name="client_reference" class="form-control form-control-sm" placeholder="e.g. Bank ref…">
+          </div>
+          <div class="mt-2">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning btn-sm" id="btn-submit-pending">Initiate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Create Installment Plan Modal -->
+<div class="modal fade" id="modal-installment" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Create Installment Plan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-installment">
+        <div class="modal-body">
+          <div id="inst-modal-error" class="alert alert-danger d-none py-2" style="font-size:.82rem;"></div>
+          <input type="hidden" id="inst-invoice-id">
+          <p class="mb-3 text-muted" style="font-size:.82rem;">
+            Invoice: <strong id="inst-invoice-num"></strong>
+          </p>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Number of Installments <span class="text-danger">*</span></label>
+              <input type="number" name="number_of_installments" class="form-control form-control-sm" min="2" max="24" value="3" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Start Date <span class="text-danger">*</span></label>
+              <input type="date" name="start_date" class="form-control form-control-sm" required>
+            </div>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col">
+              <label class="form-label">Frequency</label>
+              <select name="frequency" class="form-select form-select-sm">
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Bi-weekly</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label">Total Amount <span class="text-danger">*</span></label>
+              <input type="number" name="total_amount" class="form-control form-control-sm" min="0.01" step="0.01" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-installment">Create Plan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block extra_js %}
 <script src="{% static 'js/finance.js' %}"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    CampusOpsFinance.init({
-      loginUrl: '{% url "web-login" %}',
-      tokenUrl: '/api/v1/auth/token/',
-      meUrl: '/api/v1/auth/me/',
-      feesUrl: '/api/v1/finance/fee-structures/',
-      invoicesUrl: '/api/v1/finance/invoices/',
-      paymentsUrl: '/api/v1/finance/payments/',
-      installmentPlansUrl: '/api/v1/finance/installment-plans/',
-    });
-  });
-</script>
 {% endblock %}

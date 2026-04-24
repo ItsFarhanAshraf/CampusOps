@@ -1,35 +1,60 @@
-{% extends "base.html" %}
-{% block title %}Sign in — CampusOps{% endblock %}
+{% extends "base_auth.html" %}
+{% block title %}Sign in{% endblock %}
+
 {% block content %}
-<section class="card">
-  <h1>Sign in</h1>
-  <p class="muted">Use the email and password you registered with.</p>
-  <div id="form-error" class="alert alert-error hidden" role="alert"></div>
-  <form id="login-form" class="stack" novalidate>
-    {% csrf_token %}
-    <label class="field">
-      <span>Email</span>
-      <input type="email" name="email" autocomplete="username" required>
-    </label>
-    <label class="field">
-      <span>Password</span>
-      <input type="password" name="password" autocomplete="current-password" required>
-    </label>
-    <button type="submit" class="btn primary" id="login-submit">Continue</button>
-  </form>
-  <p class="muted footnote">No account? <a href="{% url 'web-signup' %}">Create one</a></p>
-</section>
+<div class="co-auth-logo">
+  <i class="bi bi-building-fill fs-3"></i>
+  <span>CampusOps</span>
+</div>
+
+<h2 class="co-auth-title">Welcome back</h2>
+<p class="co-auth-subtitle">Sign in to your campus account</p>
+
+<div id="form-error" class="alert alert-danger d-none py-2" role="alert" style="font-size:.855rem;"></div>
+
+<form id="login-form" novalidate autocomplete="on">
+  {% csrf_token %}
+
+  <div class="mb-3">
+    <label class="form-label" for="id_email">Email address</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+      <input type="email" id="id_email" name="email" class="form-control"
+             placeholder="you@campus.edu" autocomplete="email" required>
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <label class="form-label" for="id_password">Password</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-lock"></i></span>
+      <input type="password" id="id_password" name="password" class="form-control"
+             placeholder="••••••••" autocomplete="current-password" required>
+      <button class="btn btn-outline-secondary" type="button" id="toggle-password" tabindex="-1">
+        <i class="bi bi-eye"></i>
+      </button>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100" id="login-submit">
+    Sign in
+  </button>
+</form>
+
+<p class="co-auth-footer mt-3">
+  Don't have an account?
+  <a href="{% url 'web-signup' %}">Create one</a>
+</p>
 {% endblock %}
+
 {% block extra_js %}
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    CampusOpsAuth.initLoginPage({
-      formId: 'login-form',
-      errorId: 'form-error',
-      submitId: 'login-submit',
-      tokenUrl: '/api/v1/auth/token/',
-      dashboardUrl: '{% url "web-dashboard" %}',
-    });
+  CampusOpsAuth.initLoginPage({
+    formId:       'login-form',
+    errorId:      'form-error',
+    submitId:     'login-submit',
+    tokenUrl:     '{% url "auth-token" %}',
+    dashboardUrl: '{% url "web-dashboard" %}',
   });
 </script>
 {% endblock %}
