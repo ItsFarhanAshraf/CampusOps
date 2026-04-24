@@ -10,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from finance.models import FeeStructure, InstallmentPlan, Invoice, InvoiceLine, Payment
-from finance.pdf import build_invoice_pdf
 from finance.permissions import ReadAuthenticatedOrFinanceManageWrite, user_can_manage_finance
 from finance.serializers import (
     FeeStructureSerializer,
@@ -112,6 +111,18 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="pdf")
     def pdf(self, request, pk=None):
         invoice = self.get_object()
+        try:
+            from finance.pdf import build_invoice_pdf
+        except ImportError:
+            return Response(
+                {
+                    "detail": (
+                        "PDF generation requires the 'reportlab' package. "
+                        "Use the project virtual environment (venv) or run: pip install -r requirements.txt"
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         data = build_invoice_pdf(invoice)
         buffer = BytesIO(data)
         return FileResponse(
