@@ -2,8 +2,13 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from finance.models import FeeStructure, Invoice, InvoiceLine, Payment
-from finance.services import invoice_amount_paid, invoice_line_total
+from finance.models import FeeStructure, Installment, InstallmentPlan, Invoice, InvoiceLine, Payment
+from finance.services import (
+    allocatable_remaining,
+    invoice_amount_paid,
+    invoice_amount_pending,
+    invoice_line_total,
+)
 
 
 class FeeStructureSerializer(serializers.ModelSerializer):
@@ -120,16 +125,28 @@ class PaymentSerializer(serializers.ModelSerializer):
             "reference",
             "status",
             "recorded_by",
+            "expires_at",
+            "client_reference",
             "created_at",
         )
-        read_only_fields = ("invoice", "status", "recorded_by", "created_at")
+        read_only_fields = (
+            "invoice",
+            "status",
+            "recorded_by",
+            "expires_at",
+            "client_reference",
+            "created_at",
+        )
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
     lines = InvoiceLineSerializer(many=True, read_only=True)
     line_total = serializers.SerializerMethodField()
     amount_paid = serializers.SerializerMethodField()
+    pending_total = serializers.SerializerMethodField()
+    allocatable = serializers.SerializerMethodField()
     balance = serializers.SerializerMethodField()
+    installment_plan = serializers.SerializerMethodField()
 
     class Meta:
         model = Invoice
@@ -146,7 +163,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "lines",
             "line_total",
             "amount_paid",
+            "pending_total",
+            "allocatable",
             "balance",
+            "installment_plan",
         )
         read_only_fields = (
             "student",
@@ -157,7 +177,10 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "lines",
             "line_total",
             "amount_paid",
+            "pending_total",
+            "allocatable",
             "balance",
+            "installment_plan",
         )
 
     def get_line_total(self, obj: Invoice) -> str:
@@ -166,9 +189,27 @@ class InvoiceSerializer(serializers.ModelSerializer):
     def get_amount_paid(self, obj: Invoice) -> str:
         return str(invoice_amount_paid(obj))
 
+    def get_pending_total(self, obj: Invoice) -> str:
+        return str(invoice_amount_pending(obj))
+
+    def get_allocatable(self, obj: Invoice) -> str:
+        return str(allocatable_remaining(obj))
+
     def get_balance(self, obj: Invoice) -> str:
         bal = invoice_line_total(obj) - invoice_amount_paid(obj)
         return str(bal)
+
+    def get_installment_plan(self, obj: Invoice) -> dict | None:
+        plan = getattr(obj, "installment_plan", None)
+        if not plan:
+            return None
+        return {
+            "id": plan.pk,
+            "title": plan.title,
+            "frequency": plan.frequency,
+            "num_installments": plan.num_installments,
+            "principal_amount": str(plan.principal_amount),
+        }
 
 
 class InvoiceCreateSerializer(serializers.ModelSerializer):
@@ -221,3 +262,85 @@ class RecordPaymentSerializer(serializers.Serializer):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero.")
         return value
+
+
+class InitiatePendingPaymentSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    method = serializers.ChoiceField(choices=Payment.Method.choices)
+    reference = serializers.CharField(required=False, allow_blank=True, max_length=128)
+    client_reference = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=128,
+    )
+    expires_in_hours = serializers.IntegerField(required=False, min_value=1, max_value=168, default=24)
+
+    def validate_amount(self, value: Decimal) -> Decimal:
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be greater than zero.")
+        return value
+
+
+class InstallmentPlanCreateSerializer(serializers.Serializer):
+    num_installments = serializers.IntegerField(min_value=2, max_value=120)
+    first_due_date = serializers.DateField()
+    frequency = serializers.ChoiceField(choices=InstallmentPlan.Frequency.choices)
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class InstallmentSerializer(serializers.ModelSerializer):
+    display_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Installment
+        fields = (
+            "id",
+            "sequence",
+            "due_date",
+            "amount",
+            "status",
+            "display_status",
+            "paid_at",
+            "payment",
+        )
+        read_only_fields = (
+            "id",
+            "sequence",
+            "due_date",
+            "amount",
+            "status",
+            "display_status",
+            "paid_at",
+            "payment",
+        )
+
+    def get_display_status(self, obj: Installment) -> str:
+        return obj.display_status()
+
+
+class InstallmentPlanSerializer(serializers.ModelSerializer):
+    installments = InstallmentSerializer(many=True, read_only=True)
+    invoice = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = InstallmentPlan
+        fields = (
+            "id",
+            "invoice",
+            "title",
+            "frequency",
+            "num_installments",
+            "principal_amount",
+            "created_at",
+            "installments",
+        )
+        read_only_fields = (
+            "id",
+            "invoice",
+            "title",
+            "frequency",
+            "num_installments",
+            "principal_amount",
+            "created_at",
+            "installments",
+        )

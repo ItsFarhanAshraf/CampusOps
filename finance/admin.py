@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from finance.models import FeeStructure, Invoice, InvoiceLine, Payment
+from finance.models import FeeStructure, Installment, InstallmentPlan, Invoice, InvoiceLine, Payment
 
 
 class InvoiceLineInline(admin.TabularInline):
@@ -25,6 +25,27 @@ class InvoiceAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("id", "invoice", "amount", "method", "status", "created_at")
+    list_display = (
+        "id",
+        "invoice",
+        "amount",
+        "method",
+        "status",
+        "expires_at",
+        "client_reference",
+        "created_at",
+    )
     list_filter = ("method", "status")
-    search_fields = ("reference", "invoice__student__email")
+    search_fields = ("reference", "client_reference", "invoice__student__email")
+
+
+class InstallmentInline(admin.TabularInline):
+    model = Installment
+    extra = 0
+
+
+@admin.register(InstallmentPlan)
+class InstallmentPlanAdmin(admin.ModelAdmin):
+    list_display = ("id", "invoice", "frequency", "num_installments", "principal_amount", "created_at")
+    search_fields = ("invoice__student__email", "title")
+    inlines = [InstallmentInline]

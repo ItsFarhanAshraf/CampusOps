@@ -8,6 +8,7 @@ router.register(r"fee-structures", views.FeeStructureViewSet, basename="fee-stru
 router.register(r"invoices", views.InvoiceViewSet, basename="invoice")
 router.register(r"invoice-lines", views.InvoiceLineViewSet, basename="invoice-line")
 router.register(r"payments", views.PaymentViewSet, basename="payment")
+router.register(r"installment-plans", views.InstallmentPlanViewSet, basename="installment-plan")
 
 urlpatterns = [
     path("", include(router.urls)),

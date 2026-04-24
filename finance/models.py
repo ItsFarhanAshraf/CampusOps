@@ -111,6 +111,7 @@ class Payment(models.Model):
         PENDING = "pending", "Pending"
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
 
     class Method(models.TextChoices):
         CARD = "card", "Card"
@@ -142,6 +143,17 @@ class Payment(models.Model):
         blank=True,
         related_name="recorded_payments",
     )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Pending authorizations may expire (client-side enforcement + API checks).",
+    )
+    client_reference = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="Optional PSP / correlation id (e.g. Stripe PaymentIntent id).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -149,3 +161,78 @@ class Payment(models.Model):
 
     def __str__(self) -> str:
         return f"Payment {self.amount} on invoice {self.invoice_id}"
+
+
+class InstallmentPlan(models.Model):
+    class Frequency(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+
+    invoice = models.OneToOneField(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name="installment_plan",
+    )
+    title = models.CharField(max_length=255, blank=True, default="")
+    frequency = models.CharField(
+        max_length=16,
+        choices=Frequency.choices,
+        default=Frequency.MONTHLY,
+    )
+    num_installments = models.PositiveIntegerField()
+    principal_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Plan for invoice {self.invoice_id}"
+
+
+class Installment(models.Model):
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        PAID = "paid", "Paid"
+        CANCELLED = "cancelled", "Cancelled"
+
+    plan = models.ForeignKey(
+        InstallmentPlan,
+        on_delete=models.CASCADE,
+        related_name="installments",
+    )
+    sequence = models.PositiveIntegerField()
+    due_date = models.DateField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.SCHEDULED,
+    )
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="installments",
+    )
+
+    class Meta:
+        ordering = ["plan", "sequence"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan", "sequence"],
+                name="finance_installment_unique_sequence",
+            ),
+        ]
+
+    def display_status(self) -> str:
+        from django.utils import timezone
+
+        if self.status == self.Status.SCHEDULED and self.due_date < timezone.now().date():
+            return "overdue"
+        return self.status
+
+    def __str__(self) -> str:
+        return f"Installment {self.sequence} ({self.amount}) due {self.due_date}"

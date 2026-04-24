@@ -11,14 +11,16 @@
         <button type="button" class="btn ghost" id="finance-logout">Sign out</button>
       </div>
     </div>
-    <p class="muted">Phase 4 — fee catalog, invoices, and atomic payment tracking (JWT + API).</p>
+    <p class="muted">Phase 4.1 — pending payment intents, PDF invoices, and student-visible installment schedules.</p>
     <div id="finance-error" class="alert alert-error hidden" role="alert"></div>
     <p id="finance-role" class="pill hidden"></p>
 
     <div class="tabs" role="tablist" aria-label="Finance sections">
       <button type="button" class="tab active" data-tab="fees">Fee structures</button>
       <button type="button" class="tab" data-tab="invoices">Invoices</button>
-      <button type="button" class="tab" data-tab="payments">Payments</button>
+      <button type="button" class="tab" data-tab="pending">Pending payments</button>
+      <button type="button" class="tab" data-tab="installments">Installment plans</button>
+      <button type="button" class="tab" data-tab="payments">All payments</button>
     </div>
 
     <div class="tab-panel" data-panel="fees">
@@ -49,7 +51,7 @@
 
     <div class="tab-panel hidden" data-panel="invoices">
       <h2 class="h2">Invoices</h2>
-      <p class="muted">Drafts can be edited; issuing locks lines. Payments update status atomically on the server.</p>
+      <p class="muted">PDFs use line totals; <strong>pending</strong> authorizations reduce allocatable balance until confirmed, cancelled, or expired.</p>
       <div id="invoice-manage" class="hidden stack" style="margin:1rem 0;">
         <h3 class="h3">Create draft invoice</h3>
         <form id="invoice-form" class="stack">
@@ -78,24 +80,67 @@
             </select>
           </label>
           <label class="field"><span>Reference (optional)</span><input id="pay-ref" type="text" maxlength="128"></label>
-          <button type="button" class="btn primary" id="btn-pay">Record payment</button>
+          <button type="button" class="btn primary" id="btn-pay">Record completed payment</button>
         </div>
+        <div id="installment-plan-box" class="hidden stack" style="margin-top:1rem;">
+          <h3 class="h3">Create installment plan</h3>
+          <p class="muted">Splits the current <strong>allocatable</strong> balance into equal installments (server-side rounding).</p>
+          <label class="field"><span>Count</span><input id="plan-count" type="number" min="2" max="120" value="3"></label>
+          <label class="field"><span>First due date</span><input id="plan-first-due" type="date"></label>
+          <label class="field"><span>Frequency</span>
+            <select id="plan-frequency">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+          <label class="field"><span>Title (optional)</span><input id="plan-title" type="text" maxlength="255" placeholder="Spring tuition plan"></label>
+          <button type="button" class="btn primary" id="btn-create-plan">Create plan for invoice ID above</button>
+        </div>
+      </div>
+      <div class="stack" style="margin:1rem 0;">
+        <h3 class="h3">Start pending payment (Stripe-style hold)</h3>
+        <p class="muted">Students may initiate a hold on <strong>their</strong> invoices; finance can initiate on behalf of a payer. Pending amounts reduce allocatable balance until confirmed or cancelled.</p>
+        <label class="field"><span>Client reference (optional)</span><input id="init-client-ref" type="text" maxlength="128" placeholder="pi_… or internal id"></label>
+        <label class="field"><span>Expires in hours</span><input id="init-exp-hours" type="number" min="1" max="168" value="24"></label>
+        <button type="button" class="btn primary" id="btn-initiate-pending">Create pending payment</button>
       </div>
       <div class="table-wrap">
         <table class="data" aria-label="Invoices">
-          <thead><tr><th>ID</th><th>Student</th><th>Status</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
-          <tbody id="invoice-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+          <thead><tr><th>ID</th><th>Student</th><th>Status</th><th>Due</th><th>Total</th><th>Paid</th><th>Pending</th><th>Alloc.</th><th>Balance</th><th>Plan</th><th>PDF</th></tr></thead>
+          <tbody id="invoice-body"><tr><td colspan="11" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel hidden" data-panel="pending">
+      <h2 class="h2">Pending payments</h2>
+      <p class="muted">Confirm to capture funds (updates invoice status atomically). Finance can cancel a pending authorization.</p>
+      <div class="table-wrap">
+        <table class="data" aria-label="Pending payments">
+          <thead><tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Method</th><th>Expires</th><th>Client ref</th><th>Actions</th></tr></thead>
+          <tbody id="pending-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel hidden" data-panel="installments">
+      <h2 class="h2">Installment plans</h2>
+      <p class="muted">Each issued invoice may have at most one plan. Students only see their own plans.</p>
+      <div class="table-wrap">
+        <table class="data" aria-label="Installment plans">
+          <thead><tr><th>Plan</th><th>Invoice</th><th>Principal</th><th>Schedule</th></tr></thead>
+          <tbody id="installment-body"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
 
     <div class="tab-panel hidden" data-panel="payments">
-      <h2 class="h2">Payments</h2>
-      <p class="muted">Read-only ledger entries (created via <strong>Record payment</strong> on an issued invoice).</p>
+      <h2 class="h2">All payments</h2>
+      <p class="muted">Ledger includes completed, pending, failed, and cancelled rows.</p>
       <div class="table-wrap">
         <table class="data" aria-label="Payments">
-          <thead><tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Method</th><th>Reference</th><th>When</th></tr></thead>
-          <tbody id="payment-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+          <thead><tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Status</th><th>Method</th><th>Reference</th><th>When</th></tr></thead>
+          <tbody id="payment-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -113,6 +158,7 @@
       feesUrl: '/api/v1/finance/fee-structures/',
       invoicesUrl: '/api/v1/finance/invoices/',
       paymentsUrl: '/api/v1/finance/payments/',
+      installmentPlansUrl: '/api/v1/finance/installment-plans/',
     });
   });
 </script>
