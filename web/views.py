@@ -20,3 +20,7 @@ class DashboardView(TemplateView):
 
 class AcademicView(TemplateView):
     template_name = "web/academic.html"
+
+
+class FinanceView(TemplateView):
+    template_name = "web/finance.html"

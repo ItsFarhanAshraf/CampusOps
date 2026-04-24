@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Finance — CampusOps{% endblock %}
+{% block content %}
+<div class="academic-wrap">
+  <section class="card">
+    <div class="row spread">
+      <h1>Finance hub</h1>
+      <div class="inline-actions">
+        <a class="btn ghost" href="{% url 'web-dashboard' %}">Dashboard</a>
+        <button type="button" class="btn ghost" id="finance-logout">Sign out</button>
+      </div>
+    </div>
+    <p class="muted">Phase 4 — fee catalog, invoices, and atomic payment tracking (JWT + API).</p>
+    <div id="finance-error" class="alert alert-error hidden" role="alert"></div>
+    <p id="finance-role" class="pill hidden"></p>
+
+    <div class="tabs" role="tablist" aria-label="Finance sections">
+      <button type="button" class="tab active" data-tab="fees">Fee structures</button>
+      <button type="button" class="tab" data-tab="invoices">Invoices</button>
+      <button type="button" class="tab" data-tab="payments">Payments</button>
+    </div>
+
+    <div class="tab-panel" data-panel="fees">
+      <h2 class="h2">Fee structures</h2>
+      <p class="muted">Catalog amounts used to build invoice lines (inactive fees hidden from students).</p>
+      <div id="fee-manage" class="hidden stack" style="margin:1rem 0;">
+        <h3 class="h3">Create / update fee</h3>
+        <form id="fee-form" class="stack">
+          <input type="hidden" name="id" id="fee-id">
+          <label class="field"><span>Code</span><input name="code" required maxlength="32" placeholder="TUITION"></label>
+          <label class="field"><span>Name</span><input name="name" required maxlength="255"></label>
+          <label class="field"><span>Amount</span><input name="amount" type="number" step="0.01" min="0.01" required></label>
+          <label class="field"><span>Term (optional)</span><input name="term" maxlength="64" placeholder="Fall 2026"></label>
+          <label class="field inline-actions"><input type="checkbox" name="is_active" checked> <span>Active</span></label>
+          <div class="inline-actions">
+            <button type="submit" class="btn primary" id="fee-submit">Save fee</button>
+            <button type="button" class="btn ghost" id="fee-reset">Clear form</button>
+          </div>
+        </form>
+      </div>
+      <div class="table-wrap">
+        <table class="data" aria-label="Fee structures">
+          <thead><tr><th>Code</th><th>Name</th><th>Amount</th><th>Term</th><th>Active</th><th id="fee-actions-th" class="hidden">Actions</th></tr></thead>
+          <tbody id="fee-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel hidden" data-panel="invoices">
+      <h2 class="h2">Invoices</h2>
+      <p class="muted">Drafts can be edited; issuing locks lines. Payments update status atomically on the server.</p>
+      <div id="invoice-manage" class="hidden stack" style="margin:1rem 0;">
+        <h3 class="h3">Create draft invoice</h3>
+        <form id="invoice-form" class="stack">
+          <label class="field"><span>Student user ID</span><input name="student" type="number" min="1" required></label>
+          <label class="field"><span>Due date</span><input name="due_date" type="date" required></label>
+          <label class="field"><span>Notes (optional)</span><input name="notes" type="text" maxlength="500"></label>
+          <label class="field"><span>Lines (JSON array)</span>
+            <textarea name="lines_json" rows="6" class="code" required>[{"label":"Tuition","quantity":"1","unit_price":"5000.00","amount":"5000.00"}]</textarea>
+          </label>
+          <button type="submit" class="btn primary" id="invoice-submit">Create draft</button>
+        </form>
+        <h3 class="h3" style="margin-top:1rem;">Issue / void / pay</h3>
+        <div class="stack" style="max-width:520px;">
+          <label class="field"><span>Invoice ID</span><input id="op-invoice-id" type="number" min="1"></label>
+          <div class="inline-actions">
+            <button type="button" class="btn primary" id="btn-issue">Issue</button>
+            <button type="button" class="btn ghost" id="btn-void">Void (no payments)</button>
+          </div>
+          <label class="field"><span>Payment amount</span><input id="pay-amount" type="number" step="0.01" min="0.01"></label>
+          <label class="field"><span>Method</span>
+            <select id="pay-method">
+              <option value="card">Card</option>
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank transfer</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="field"><span>Reference (optional)</span><input id="pay-ref" type="text" maxlength="128"></label>
+          <button type="button" class="btn primary" id="btn-pay">Record payment</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data" aria-label="Invoices">
+          <thead><tr><th>ID</th><th>Student</th><th>Status</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
+          <tbody id="invoice-body"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel hidden" data-panel="payments">
+      <h2 class="h2">Payments</h2>
+      <p class="muted">Read-only ledger entries (created via <strong>Record payment</strong> on an issued invoice).</p>
+      <div class="table-wrap">
+        <table class="data" aria-label="Payments">
+          <thead><tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Method</th><th>Reference</th><th>When</th></tr></thead>
+          <tbody id="payment-body"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{% static 'js/finance.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    CampusOpsFinance.init({
+      loginUrl: '{% url "web-login" %}',
+      tokenUrl: '/api/v1/auth/token/',
+      meUrl: '/api/v1/auth/me/',
+      feesUrl: '/api/v1/finance/fee-structures/',
+      invoicesUrl: '/api/v1/finance/invoices/',
+      paymentsUrl: '/api/v1/finance/payments/',
+    });
+  });
+</script>
+{% endblock %}
