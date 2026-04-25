@@ -263,11 +263,17 @@
         '</div>' +
       '</div>';
     } else {
+      var overall = (data.overall_percent !== null && data.overall_percent !== undefined)
+        ? (parseFloat(data.overall_percent).toFixed(1) + '%')
+        : '—';
       html += '<div class="co-table-card p-3">' +
         '<div class="d-flex align-items-center justify-content-between">' +
           '<div><div class="fw-semibold">Grades Summary</div>' +
           '<div class="text-muted" style="font-size:.8rem;">' + esc(data.course_code || '') + '</div></div>' +
-          (data.overall_percent !== null && data.overall_percent !== undefined\n+            ? '<div class=\"co-badge co-badge-primary\">Overall: ' + parseFloat(data.overall_percent).toFixed(1) + '%</div>'\n+            : '<div class=\"co-badge co-badge-primary\">Overall: —</div>') +\n+        '</div>' +\n+        '<div class=\"text-muted mt-2\" style=\"font-size:.82rem;\">Per-student breakdown is available in the API response.</div>' +\n+      '</div>';
+          '<div class="co-badge co-badge-primary">Overall: ' + overall + '</div>' +
+        '</div>' +
+        '<div class="text-muted mt-2" style="font-size:.82rem;">Per-student breakdown is available in the API response.</div>' +
+      '</div>';
     }
     html += '</div>';
     container.innerHTML = html;
@@ -416,21 +422,12 @@
     var btnAtt = document.getElementById('btn-add-attendance');
     if (btnAtt) {
       btnAtt.addEventListener('click', function () {
-        /* Make sure enrollments are loaded for the select */
-        if (!_tabLoaded['enrollments']) {
-          _tabLoaded['enrollments'] = true;
-          loadEnrollments();
-        }
         new bootstrap.Modal(document.getElementById('modal-attendance')).show();
       });
     }
     var btnGrade = document.getElementById('btn-add-grade');
     if (btnGrade) {
       btnGrade.addEventListener('click', function () {
-        if (!_tabLoaded['enrollments']) {
-          _tabLoaded['enrollments'] = true;
-          loadEnrollments();
-        }
         new bootstrap.Modal(document.getElementById('modal-grade')).show();
       });
     }
