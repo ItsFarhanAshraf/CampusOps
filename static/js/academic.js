@@ -56,7 +56,7 @@
   function populateCourseSelects(list) {
     ['att-course-filter','grade-course-filter',
      'report-att-course','report-grade-course',
-     'enroll-course-select'].forEach(function (id) {
+     'enroll-course-select','att-course-select','grade-course-select'].forEach(function (id) {
       var sel = document.getElementById(id);
       if (!sel) return;
       /* Keep first option */
@@ -64,7 +64,7 @@
       list.forEach(function (c) {
         var opt = document.createElement('option');
         opt.value = c.id;
-        opt.textContent = c.code + ' — ' + c.name;
+        opt.textContent = c.code + ' — ' + c.title;
         sel.appendChild(opt);
       });
     });
@@ -183,26 +183,8 @@
     var url = '/api/v1/academic/enrollments/' + (statusV ? '?status=' + statusV : '');
     var list = await apiFetch(url);
 
-    /* Populate enrollment selects for attendance/grade modals */
-    populateEnrollmentSelects(list);
     renderEnrollmentsTable(list);
     CampusApp.initTableSearch('enroll-search', 'enrollments-tbody');
-  }
-
-  function populateEnrollmentSelects(list) {
-    ['att-enrollment-select','grade-enrollment-select'].forEach(function (id) {
-      var sel = document.getElementById(id);
-      if (!sel) return;
-      while (sel.options.length > 1) sel.remove(1);
-      list.forEach(function (e) {
-        var opt = document.createElement('option');
-        opt.value = e.id;
-        var studentLabel = e.student_email || ('Student #' + e.student);
-        var courseLabel  = e.course_detail ? e.course_detail.code : ('Course #' + e.course);
-        opt.textContent  = studentLabel + ' — ' + courseLabel;
-        sel.appendChild(opt);
-      });
-    });
   }
 
   function renderEnrollmentsTable(list) {
@@ -213,13 +195,13 @@
     }
     var rows = list.map(function (e) {
       var studentEmail = e.student_email || '—';
-      var courseCode   = e.course_detail ? e.course_detail.code : '—';
+      var courseCode   = e.course_code || '—';
       var tr = document.createElement('tr');
       tr.dataset.search = [studentEmail, courseCode, e.status].join(' ');
       tr.innerHTML =
         '<td>' + esc(studentEmail) + '</td>' +
         '<td>' + esc(courseCode) + '</td>' +
-        '<td>' + CampusApp.fmtDate(e.enrolled_on) + '</td>' +
+        '<td>' + CampusApp.fmtDate(e.enrolled_at) + '</td>' +
         '<td>' + CampusApp.statusBadge(e.status) + '</td>';
       return tr;
     });

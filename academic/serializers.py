@@ -46,6 +46,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         required=False,
     )
     student_email = serializers.EmailField(source="student.email", read_only=True)
+    student_email_input = serializers.EmailField(write_only=True, required=False)
     course_code = serializers.CharField(source="course.code", read_only=True)
 
     class Meta:
@@ -55,6 +56,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             "course",
             "student",
             "student_email",
+            "student_email_input",
             "course_code",
             "status",
             "enrolled_at",
@@ -66,6 +68,12 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
         course = attrs.get("course")
         student = attrs.get("student")
+        email_in = attrs.pop("student_email_input", None)
+        if email_in and student is None:
+            student = User.objects.filter(email__iexact=email_in.strip()).first()
+            if not student:
+                raise serializers.ValidationError({"student_email_input": "No user found with this email."})
+            attrs["student"] = student
         if user and student is None:
             attrs["student"] = user
             student = user
@@ -92,6 +100,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 class AttendanceSerializer(serializers.ModelSerializer):
     student_email = serializers.EmailField(source="student.email", read_only=True)
     course_code = serializers.CharField(source="course.code", read_only=True)
+    student_email_input = serializers.EmailField(write_only=True, required=False)
 
     class Meta:
         model = Attendance
@@ -100,6 +109,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
             "course",
             "student",
             "student_email",
+            "student_email_input",
             "course_code",
             "session_date",
             "status",
@@ -122,6 +132,12 @@ class AttendanceSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         course = attrs.get("course") or getattr(self.instance, "course", None)
         student = attrs.get("student") or getattr(self.instance, "student", None)
+        email_in = attrs.pop("student_email_input", None)
+        if email_in and student is None:
+            student = User.objects.filter(email__iexact=email_in.strip()).first()
+            if not student:
+                raise serializers.ValidationError({"student_email_input": "No user found with this email."})
+            attrs["student"] = student
         session_date = attrs.get("session_date") or getattr(
             self.instance,
             "session_date",
@@ -148,6 +164,7 @@ class GradeSerializer(serializers.ModelSerializer):
     student_email = serializers.EmailField(source="student.email", read_only=True)
     course_code = serializers.CharField(source="course.code", read_only=True)
     percentage = serializers.SerializerMethodField()
+    student_email_input = serializers.EmailField(write_only=True, required=False)
 
     class Meta:
         model = Grade
@@ -156,6 +173,7 @@ class GradeSerializer(serializers.ModelSerializer):
             "course",
             "student",
             "student_email",
+            "student_email_input",
             "course_code",
             "category",
             "title",
@@ -198,6 +216,12 @@ class GradeSerializer(serializers.ModelSerializer):
             )
         course = attrs.get("course") or getattr(self.instance, "course", None)
         student = attrs.get("student") or getattr(self.instance, "student", None)
+        email_in = attrs.pop("student_email_input", None)
+        if email_in and student is None:
+            student = User.objects.filter(email__iexact=email_in.strip()).first()
+            if not student:
+                raise serializers.ValidationError({"student_email_input": "No user found with this email."})
+            attrs["student"] = student
         if course and student:
             if not course.enrollments.filter(
                 student=student,
