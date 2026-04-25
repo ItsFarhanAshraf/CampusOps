@@ -33,13 +33,9 @@ def _courses_visible_to(user):
     ):
         return Course.objects.all()
     if _user_in_groups(user, {"faculty"}):
-        return Course.objects.filter(
-            Q(instructor=user)
-            | Q(
-                enrollments__student=user,
-                enrollments__status=Enrollment.Status.ACTIVE,
-            ),
-        ).distinct()
+        # Faculty are academic managers in this phase; show full catalog
+        # so they can manage and assign courses.
+        return Course.objects.all()
     return Course.objects.filter(
         enrollments__student=user,
         enrollments__status=Enrollment.Status.ACTIVE,

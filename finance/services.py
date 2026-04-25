@@ -160,13 +160,13 @@ def confirm_pending_payment(*, payment: Payment) -> tuple[Invoice, Payment]:
         raise ValidationError({"detail": "Only pending payments can be confirmed."})
     if pay.expires_at and pay.expires_at < timezone.now():
         pay.status = Payment.Status.FAILED
-        pay.save(update_fields=["status", "updated_at"])
+        pay.save(update_fields=["status"])
         raise ValidationError({"detail": "This pending payment has expired."})
     inv = Invoice.objects.select_for_update().get(pk=pay.invoice_id)
     if inv.status in (Invoice.Status.VOID, Invoice.Status.DRAFT):
         raise ValidationError({"detail": "Invoice is not payable in its current state."})
     pay.status = Payment.Status.COMPLETED
-    pay.save(update_fields=["status", "updated_at"])
+    pay.save(update_fields=["status"])
     _refresh_invoice_payment_status(inv)
     inv.refresh_from_db(fields=["status", "updated_at"])
     return inv, pay
@@ -178,7 +178,7 @@ def cancel_pending_payment(*, payment: Payment) -> Payment:
     if pay.status != Payment.Status.PENDING:
         raise ValidationError({"detail": "Only pending payments can be cancelled."})
     pay.status = Payment.Status.CANCELLED
-    pay.save(update_fields=["status", "updated_at"])
+    pay.save(update_fields=["status"])
     return pay
 
 

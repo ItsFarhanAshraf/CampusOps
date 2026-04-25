@@ -88,12 +88,12 @@
     }
     var rows = list.map(function (c) {
       var tr = document.createElement('tr');
-      tr.dataset.search = [c.code, c.name, c.instructor_detail && c.instructor_detail.email || ''].join(' ');
+      tr.dataset.search = [c.code, c.title, c.term || '', c.instructor_email || ''].join(' ');
       tr.innerHTML =
         '<td><span class="fw-500">' + esc(c.code) + '</span></td>' +
-        '<td>' + esc(c.name) + '</td>' +
-        '<td>' + (c.credits || '—') + '</td>' +
-        '<td>' + (c.instructor_detail ? esc(c.instructor_detail.email || '') : '—') + '</td>' +
+        '<td>' + esc(c.title) + '<div class="text-muted" style="font-size:.75rem;">' + esc(c.term || '') + '</div></td>' +
+        '<td>—</td>' +
+        '<td>' + esc(c.instructor_email || '—') + '</td>' +
         '<td>' +
           (canManage()
             ? '<button class="btn btn-xs btn-outline-danger" onclick="CampusAcademic.deleteCourse(' + c.id + ')">Delete</button>'
@@ -126,8 +126,8 @@
       return;
     }
     var rows = list.map(function (a) {
-      var studentEmail = a.enrollment_detail ? (a.enrollment_detail.student_email || '—') : '—';
-      var courseCode   = a.course_detail ? (a.course_detail.code || '—') : '—';
+      var studentEmail = a.student_email || '—';
+      var courseCode   = a.course_code || '—';
       var tr = document.createElement('tr');
       tr.dataset.search = [studentEmail, courseCode, a.session_date, a.status].join(' ');
       tr.innerHTML =
@@ -158,19 +158,19 @@
       return;
     }
     var rows = list.map(function (g) {
-      var studentEmail = g.enrollment_detail ? (g.enrollment_detail.student_email || '—') : '—';
-      var courseCode   = g.course_detail ? (g.course_detail.code || '—') : '—';
-      var pct = g.max_score ? ((parseFloat(g.score) / parseFloat(g.max_score)) * 100).toFixed(1) + '%' : '—';
+      var studentEmail = g.student_email || '—';
+      var courseCode   = g.course_code || '—';
+      var pct = g.percentage !== null && g.percentage !== undefined ? (parseFloat(g.percentage).toFixed(1) + '%') : '—';
       var tr = document.createElement('tr');
-      tr.dataset.search = [studentEmail, courseCode, g.grade_type, g.letter_grade].join(' ');
+      tr.dataset.search = [studentEmail, courseCode, g.category, g.title].join(' ');
       tr.innerHTML =
         '<td>' + esc(studentEmail) + '</td>' +
         '<td>' + esc(courseCode) + '</td>' +
-        '<td>' + g.score + ' / ' + (g.max_score || '—') +
+        '<td>' + g.score + ' / ' + (g.max_points || '—') +
           ' <small class="text-muted">(' + pct + ')</small></td>' +
-        '<td>' + esc(g.letter_grade || '—') + '</td>' +
-        '<td>' + esc(g.grade_type || '—') + '</td>' +
-        '<td>' + CampusApp.fmtDate(g.graded_at) + '</td>';
+        '<td>' + esc(g.title || '—') + '</td>' +
+        '<td>' + esc(g.category || '—') + '</td>' +
+        '<td>' + CampusApp.fmtDate(g.updated_at || g.created_at) + '</td>';
       return tr;
     });
     CampusApp.createPaginator(rows, PAGE_SIZE, 'grades-tbody', 'grades-pager', 'grades-info');
@@ -244,8 +244,8 @@
 
     CampusApp.setLoading(btn, true, 'Generating…');
     var endpoint = type === 'attendance'
-      ? '/api/v1/academic/reports/attendance/?course=' + courseId
-      : '/api/v1/academic/reports/grades/?course=' + courseId;
+      ? '/api/v1/academic/reports/attendance-summary/?course=' + courseId
+      : '/api/v1/academic/reports/grades-summary/?course=' + courseId;
 
     try {
       var res = await CampusApp.apiJson(endpoint);
@@ -260,34 +260,34 @@
   }
 
   function renderReportResult(container, data, type) {
-    if (!data || (Array.isArray(data) && !data.length)) {
+    if (!data) {
       container.innerHTML = '<p class="text-muted" style="font-size:.82rem;">No data for this course.</p>';
       return;
     }
-    var list = Array.isArray(data) ? data : [data];
-    var html = '<div class="table-responsive mt-2"><table class="table table-sm table-bordered" style="font-size:.8rem;">';
+    var html = '<div class="mt-2">';
     if (type === 'attendance') {
-      html += '<thead><tr><th>Student</th><th>Present</th><th>Absent</th><th>Late</th><th>Rate</th></tr></thead><tbody>';
-      list.forEach(function (r) {
-        html += '<tr>' +
-          '<td>' + esc(r.student_email || r.student || '—') + '</td>' +
-          '<td>' + (r.present  || 0) + '</td>' +
-          '<td>' + (r.absent   || 0) + '</td>' +
-          '<td>' + (r.late     || 0) + '</td>' +
-          '<td>' + (r.rate !== undefined ? parseFloat(r.rate).toFixed(1) + '%' : '—') + '</td>' +
-        '</tr>';
-      });
+      html += '<div class="co-table-card p-3">' +
+        '<div class="d-flex align-items-center justify-content-between">' +
+          '<div><div class="fw-semibold">Attendance Summary</div>' +
+          '<div class="text-muted" style="font-size:.8rem;">' + esc(data.course_code || '') + '</div></div>' +
+          '<div class="co-badge co-badge-primary">Total: ' + (data.total_records || 0) + '</div>' +
+        '</div>' +
+        '<div class="co-divider"></div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+          '<span class="co-badge co-status-present">present: ' + ((data.by_status && data.by_status.present) || 0) + '</span>' +
+          '<span class="co-badge co-status-absent">absent: ' + ((data.by_status && data.by_status.absent) || 0) + '</span>' +
+          '<span class="co-badge co-status-late">late: ' + ((data.by_status && data.by_status.late) || 0) + '</span>' +
+          '<span class="co-badge co-status-excused">excused: ' + ((data.by_status && data.by_status.excused) || 0) + '</span>' +
+        '</div>' +
+      '</div>';
     } else {
-      html += '<thead><tr><th>Student</th><th>Avg Score</th><th>Count</th></tr></thead><tbody>';
-      list.forEach(function (r) {
-        html += '<tr>' +
-          '<td>' + esc(r.student_email || r.student || '—') + '</td>' +
-          '<td>' + (r.average !== undefined ? parseFloat(r.average).toFixed(2) : '—') + '</td>' +
-          '<td>' + (r.count || 0) + '</td>' +
-        '</tr>';
-      });
+      html += '<div class="co-table-card p-3">' +
+        '<div class="d-flex align-items-center justify-content-between">' +
+          '<div><div class="fw-semibold">Grades Summary</div>' +
+          '<div class="text-muted" style="font-size:.8rem;">' + esc(data.course_code || '') + '</div></div>' +
+          (data.overall_percent !== null && data.overall_percent !== undefined\n+            ? '<div class=\"co-badge co-badge-primary\">Overall: ' + parseFloat(data.overall_percent).toFixed(1) + '%</div>'\n+            : '<div class=\"co-badge co-badge-primary\">Overall: —</div>') +\n+        '</div>' +\n+        '<div class=\"text-muted mt-2\" style=\"font-size:.82rem;\">Per-student breakdown is available in the API response.</div>' +\n+      '</div>';
     }
-    html += '</tbody></table></div>';
+    html += '</div>';
     container.innerHTML = html;
   }
 
